@@ -8,7 +8,6 @@ import com.example.fastcampusmysql.util.CursorRequest;
 import com.example.fastcampusmysql.util.CursorResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -76,6 +75,11 @@ public class PostReadService {
 
         return new CursorResponse<>(cursorRequest.next(nextKey), posts);
     }
+
+    public List<Post> getPosts(List<Long> ids) {
+        return postRepository.findAllByInId(ids);
+    }
+
     private List<Post> findAllBy(Long memberId, CursorRequest cursorRequest) {
         if(cursorRequest.hasKey()) {
             return postRepository.findAllByLessThanIdAndMemberIdAndOrderByIdDesc(cursorRequest.key(), memberId, cursorRequest.size());
