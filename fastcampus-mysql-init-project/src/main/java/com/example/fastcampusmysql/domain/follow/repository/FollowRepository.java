@@ -2,7 +2,6 @@ package com.example.fastcampusmysql.domain.follow.repository;
 
 import com.example.fastcampusmysql.domain.follow.entity.Follow;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -30,6 +29,12 @@ public class FollowRepository {
     public List<Follow> findAllByFromMemberId(Long fromMemberId) {
         var sql = String.format("SELECT * FROM %s WHERE fromMemberId = :fromMemberId", TABLE);
         var params = new MapSqlParameterSource().addValue("fromMemberId", fromMemberId);
+        return namedParameterJdbcTemplate.query(sql, params, ROW_MAPPER);
+    }
+
+    public List<Follow> findAllByToMemberId(Long toMemberId) {
+        var sql = String.format("SELECT * FROM %s WHERE toMemberId = :toMemberId", TABLE);
+        var params = new MapSqlParameterSource().addValue("toMemberId", toMemberId);
         return namedParameterJdbcTemplate.query(sql, params, ROW_MAPPER);
     }
 
