@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 public class PostWriteService {
     final private PostRepository postRepository;
 
+    // 게시물 작성자를 팔로우하는 유저들의 목록을 조회해야 함, 이를 timeline에 delivery해줘야 함
+    // 두 도메인이 필요함 -> Usecase로 올리자!
     public Long create(PostCommand command) {
         var post = Post.builder()
                 .memberId(command.memberId())
