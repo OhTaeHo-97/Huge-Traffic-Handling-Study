@@ -20,6 +20,7 @@ import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -38,6 +39,7 @@ public class PostRepository {
             .memberId(resultSet.getLong("memberId"))
             .contents(resultSet.getString("contents"))
             .createdDate(resultSet.getObject("createdDate", LocalDate.class))
+            .likeCount(resultSet.getLong("likeCount"))
             .createdAt(resultSet.getObject("createdAt", LocalDateTime.class))
             .build();
 
@@ -106,6 +108,21 @@ public class PostRepository {
         // 프론트와의 규약을 어떻게 가져가느냐에 따라 다른데
         // 위에서 받은 pageable을 바로 넘겨주는데 이렇게 할 수도 있고
         // pageable에 대한 다음 페이지 요청을 넘겨줄 수도 있음
+    }
+
+    public Optional<Post> findById(Long postId, boolean requiredLock) {
+        var sql = String.format("SELECT * FROM %s WHERE id = :postId", TABLE);
+        if(requiredLock) {
+            sql += " FOR UPDATE";
+        }
+        System.out.println(sql);
+        var params = new MapSqlParameterSource()
+                .addValue("postId", postId);
+
+        // queryForObject() -> DataAccessUtils.nullableSingleResult()를 해줌!
+        //  - 그래서 직접 사용하지 않아도 queryForObject()를 통해 가능하다!
+        var nullablePost = namedParameterJdbcTemplate.queryForObject(sql, params, ROW_MAPPER);
+        return Optional.ofNullable(nullablePost);
     }
 
     private Long getCount(Long memberId) {
@@ -201,7 +218,8 @@ public class PostRepository {
     public Post save(Post post) {
         if(post.getId() == null)
             return insert(post);
-        throw new UnsupportedOperationException("Post는 갱신을 지원하지 않습니다.");
+        return update(post);
+//        throw new UnsupportedOperationException("Post는 갱신을 지원하지 않습니다.");
     }
 
     // 쿼리들을 모아서 한 번에 보내는 Bulk Insert 기능 구현
@@ -235,5 +253,20 @@ public class PostRepository {
                 .createdDate(post.getCreatedDate())
                 .createdAt(post.getCreatedAt())
                 .build();
+    }
+
+    private Post update(Post post) {
+        // JPA를 사용하면 업데이트 쿼리가 아래와 같이 나감(@DynamicUpdate 어노테이션을 사용하지 않는다면)
+        var sql = String.format("UPDATE %s SET " +
+                    "memberId = :memberId, " +
+                    "contents = :contents, " +
+                    "createdDate = :createdDate, " +
+                    "likeCount = :likeCount, " +
+                    "createdAt = :createdAt " +
+                "WHERE id = :id", TABLE);
+        SqlParameterSource params = new BeanPropertySqlParameterSource(post);
+        namedParameterJdbcTemplate.update(sql, params);
+        return post;
+
     }
 }
