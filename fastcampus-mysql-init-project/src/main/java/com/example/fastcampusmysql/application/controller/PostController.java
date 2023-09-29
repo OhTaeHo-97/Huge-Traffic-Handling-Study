@@ -77,8 +77,15 @@ public class PostController {
         return getTimelinePostUsecase.executeByTimeline(memberId, cursorRequest);
     }
 
+    // 비관적 락을 통한 좋아요 증가
+//    @PostMapping("/{postId}/like")
+//    public void likePost(@PathVariable Long postId) {
+//        postWriteService.likePost(postId);
+//    }
+
+    // 낙관적 락을 통한 좋아요 증가
     @PostMapping("/{postId}/like")
     public void likePost(@PathVariable Long postId) {
-        postWriteService.likePost(postId);
+        postWriteService.likePostByOptimisticLock(postId);
     }
 }
