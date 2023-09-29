@@ -37,4 +37,13 @@ public class PostWriteService {
         // 업데이트
         postRepository.save(post);
     }
+
+    // 낙관적 락을 통해 좋아요 수 증가
+    public void likePostByOptimisticLock(Long postId) {
+        var post = postRepository.findById(postId, false).orElseThrow();
+
+        post.incrementLikeCount();
+
+        postRepository.save(post);
+    }
 }
