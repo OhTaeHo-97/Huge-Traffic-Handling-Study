@@ -2,7 +2,9 @@ package com.example.fastcampusmysql.domain.post.service;
 
 import com.example.fastcampusmysql.domain.post.dto.DailyPostCount;
 import com.example.fastcampusmysql.domain.post.dto.DailyPostCountRequest;
+import com.example.fastcampusmysql.domain.post.dto.PostDto;
 import com.example.fastcampusmysql.domain.post.entity.Post;
+import com.example.fastcampusmysql.domain.post.repository.PostLikeRepository;
 import com.example.fastcampusmysql.domain.post.repository.PostRepository;
 import com.example.fastcampusmysql.util.CursorRequest;
 import com.example.fastcampusmysql.util.CursorResponse;
@@ -17,6 +19,7 @@ import java.util.List;
 @Service
 public class PostReadService {
     private final PostRepository postRepository;
+    private final PostLikeRepository postLikeRepository;
 
     // 일자별 게시물 개수 반환 메서드
     public List<DailyPostCount> getDailyPostCounts(DailyPostCountRequest request) {
@@ -43,10 +46,39 @@ public class PostReadService {
     //      -> 그럼 자체적으로 offset을 관리해줌
     //      -> PageRequest이 구현한 AbstractPageRequest로 들어가보면 getOffset()이라는 함수가 있음
     //          -> offset이 저절로 반환됨
-    public Page<Post> getPosts(Long memberId, Pageable pageRequest) {
-        // PostRepository의 함수를 호출하는 것
-        // 사실상 proxy 역할만 할 것이고 PostRepository로 가서 함수를 구현할 것임
-        return postRepository.findAllByMemberId(memberId, pageRequest);
+//    public Page<Post> getPosts(Long memberId, Pageable pageRequest) {
+//        // PostRepository의 함수를 호출하는 것
+//        // 사실상 proxy 역할만 할 것이고 PostRepository로 가서 함수를 구현할 것임
+//        return postRepository.findAllByMemberId(memberId, pageRequest);
+//    }
+
+    public Page<PostDto> getPosts(Long memberId, Pageable pageRequest) {
+        // Spring Data에서 제공하는 Page 인터페이스에 map()이 있음
+        //  - contents의 내용을 map의 파라미터로 변경해줌!
+        return postRepository.findAllByMemberId(memberId, pageRequest).map(this::toDto);
+    }
+
+    // Dto로 변환하는 간단한 매핑 작업에는 IO 작업이 있으면 예상치 못한 일들이 일어날 수 있다!
+    //  - 보통 mapper의 로직들은 postLikeRepository.count(post.getId()) 같은 것들을 파라미터로 빼서 받는 것이 좋다!
+    // 매번 PostDto를 조회할 때마다 PostLikeRepository에 count() 쿼리가 올라가게 됨!
+    // 그러면 결국 PostLike 데이터가 많이 쌓일 때마다 조회 시점에 부하가 계속 걸릴 것임
+    //  -> tradeoff가 된 것! (쓰기 성능을 올리기 위해 조회 성능을 희생한 케이스 - 현재 작성한 코드는 조회 성능을 압도적으로 희생한 케이스)
+    //  -> MySQL 외에 다른 기술들을 활용해서 이런 것을 해소할 수 있음!
+    //      - MySQL을 쓰더라도 Post 테이블에 likeCount 컬럼을 그대로 뒀으니, PostLike의 count 쿼리를 일정 주기적으로 Post 테이블의 likeCount에 넣어주는 방식
+    //          -> 인기가 많은 게시글이라면 1초에 조회가 수백만번 발생할 수도 있음
+    //          -> 1초에 한 번씩 count 쿼리를 likeCount에 넣어주게 되고 그것을 그대로 조회해서 사용하게 되면 게시물에 대해서 1초에 한 번만 쿼리가 나가는 것이니 부하가 줄어든다!
+    private PostDto toDto(Post post) {
+        return new PostDto(
+                post.getId(),
+                post.getContents(),
+                post.getCreatedAt(),
+//                post.getLikeCount() // 현재 LikeCount가 올라가지 않고 있음 -> 결국 PostLike에 count 쿼리가 필요!
+                postLikeRepository.count(post.getId()) // 조회 때 매번 count 쿼리가 나감!
+        );
+    }
+
+    public Post getPost(Long postId) {
+        return postRepository.findById(postId, false).orElseThrow();
     }
 
     public CursorResponse<Post> getPosts(Long memberId, CursorRequest cursorRequest) {
